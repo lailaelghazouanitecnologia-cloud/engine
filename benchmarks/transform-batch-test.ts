@@ -21,8 +21,9 @@ await WasmBridge.init('/home/user/engine/dist/wasm/engine_core_bg.wasm');
 const bridge = WasmBridge.instance;
 console.log('WASM Status:', bridge.usingFallback ? '⚠️ JS Fallback' : '✅ WASM Active');
 
-// Initialize batch processor
+// Initialize batch processor and transform batch updater
 await WasmBatchProcessor.instance.init();
+await TransformBatchUpdater.instance.init();
 console.log('');
 
 // Create test hierarchy

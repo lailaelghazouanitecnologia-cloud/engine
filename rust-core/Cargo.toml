@@ -6,6 +6,9 @@ authors = ["PlayCanvas Engine Team"]
 description = "High-performance core for PlayCanvas Engine with SIMD optimizations"
 license = "MIT"
 
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 

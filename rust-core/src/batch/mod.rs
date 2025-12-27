@@ -716,3 +716,198 @@ pub fn batch_compute_trs_matrices(
 
     output
 }
+
+/// Batch propagate transform hierarchy
+///
+/// Takes local matrices and parent indices, outputs world matrices.
+/// Must be called with transforms sorted by depth (parents before children).
+///
+/// # Arguments
+/// * `local_matrices` - Flat array of local matrices (count * 16 floats)
+/// * `parent_indices` - Parent index for each transform (-1 = no parent, use local as world)
+/// * `parent_world_matrices` - Optional external parent world matrices (for parents not in batch)
+/// * `count` - Number of transforms
+///
+/// # Returns
+/// Flat array of world matrices (count * 16 floats)
+#[wasm_bindgen]
+pub fn batch_propagate_hierarchy(
+    local_matrices: &[f32],
+    parent_indices: &[i32],
+    parent_world_matrices: &[f32],
+    count: u32,
+) -> Vec<f32> {
+    let count = count as usize;
+    let mut world_matrices = vec![0.0f32; count * 16];
+
+    for i in 0..count {
+        let local_off = i * 16;
+        let world_off = i * 16;
+        let parent_idx = parent_indices[i];
+
+        if parent_idx < 0 {
+            // No parent in batch - check if external parent
+            let ext_idx = (-parent_idx - 2) as usize;
+            if parent_idx == -1 {
+                // No parent at all, world = local
+                world_matrices[world_off..world_off + 16]
+                    .copy_from_slice(&local_matrices[local_off..local_off + 16]);
+            } else if ext_idx * 16 + 16 <= parent_world_matrices.len() {
+                // External parent (not in batch)
+                let parent_off = ext_idx * 16;
+                multiply_mat4(
+                    &parent_world_matrices[parent_off..],
+                    &local_matrices[local_off..],
+                    &mut world_matrices[world_off..],
+                );
+            }
+        } else {
+            // Parent is in batch (already computed since sorted by depth)
+            // Copy parent matrix to temp buffer to avoid borrow conflict
+            let parent_world_off = (parent_idx as usize) * 16;
+            let mut parent_temp = [0.0f32; 16];
+            parent_temp.copy_from_slice(&world_matrices[parent_world_off..parent_world_off + 16]);
+            multiply_mat4(
+                &parent_temp,
+                &local_matrices[local_off..],
+                &mut world_matrices[world_off..],
+            );
+        }
+    }
+
+    world_matrices
+}
+
+/// Helper: multiply two 4x4 matrices
+#[inline]
+fn multiply_mat4(a: &[f32], b: &[f32], out: &mut [f32]) {
+    for i in 0..4 {
+        for j in 0..4 {
+            out[i * 4 + j] =
+                a[i * 4 + 0] * b[0 * 4 + j] +
+                a[i * 4 + 1] * b[1 * 4 + j] +
+                a[i * 4 + 2] * b[2 * 4 + j] +
+                a[i * 4 + 3] * b[3 * 4 + j];
+        }
+    }
+}
+
+/// Combined batch TRS + hierarchy propagation in one call
+///
+/// This is the most efficient path for transform updates:
+/// 1. Compute all TRS matrices from position/rotation/scale
+/// 2. Propagate through hierarchy using parent indices
+///
+/// # Arguments
+/// * `positions` - Flat array of positions (count * 3 floats)
+/// * `rotations` - Flat array of quaternions (count * 4 floats)
+/// * `scales` - Flat array of scales (count * 3 floats)
+/// * `parent_indices` - Parent index for each transform (-1 = root)
+/// * `parent_world_matrices` - External parent world matrices (encoded with negative indices)
+/// * `count` - Number of transforms
+#[wasm_bindgen]
+pub fn batch_update_transforms(
+    positions: &[f32],
+    rotations: &[f32],
+    scales: &[f32],
+    parent_indices: &[i32],
+    parent_world_matrices: &[f32],
+    count: u32,
+) -> Vec<f32> {
+    let count = count as usize;
+
+    // Step 1: Compute local TRS matrices
+    let mut local_matrices = vec![0.0f32; count * 16];
+
+    for i in 0..count {
+        let p = i * 3;
+        let r = i * 4;
+        let s = i * 3;
+        let o = i * 16;
+
+        let tx = positions[p];
+        let ty = positions[p + 1];
+        let tz = positions[p + 2];
+
+        let rx = rotations[r];
+        let ry = rotations[r + 1];
+        let rz = rotations[r + 2];
+        let rw = rotations[r + 3];
+
+        let sx = scales[s];
+        let sy = scales[s + 1];
+        let sz = scales[s + 2];
+
+        let x2 = rx + rx;
+        let y2 = ry + ry;
+        let z2 = rz + rz;
+        let xx = rx * x2;
+        let xy = rx * y2;
+        let xz = rx * z2;
+        let yy = ry * y2;
+        let yz = ry * z2;
+        let zz = rz * z2;
+        let wx = rw * x2;
+        let wy = rw * y2;
+        let wz = rw * z2;
+
+        local_matrices[o + 0] = (1.0 - (yy + zz)) * sx;
+        local_matrices[o + 1] = (xy + wz) * sx;
+        local_matrices[o + 2] = (xz - wy) * sx;
+        local_matrices[o + 3] = 0.0;
+        local_matrices[o + 4] = (xy - wz) * sy;
+        local_matrices[o + 5] = (1.0 - (xx + zz)) * sy;
+        local_matrices[o + 6] = (yz + wx) * sy;
+        local_matrices[o + 7] = 0.0;
+        local_matrices[o + 8] = (xz + wy) * sz;
+        local_matrices[o + 9] = (yz - wx) * sz;
+        local_matrices[o + 10] = (1.0 - (xx + yy)) * sz;
+        local_matrices[o + 11] = 0.0;
+        local_matrices[o + 12] = tx;
+        local_matrices[o + 13] = ty;
+        local_matrices[o + 14] = tz;
+        local_matrices[o + 15] = 1.0;
+    }
+
+    // Step 2: Propagate hierarchy
+    let mut world_matrices = vec![0.0f32; count * 16];
+
+    for i in 0..count {
+        let local_off = i * 16;
+        let world_off = i * 16;
+        let parent_idx = parent_indices[i];
+
+        if parent_idx == -1 {
+            // No parent, world = local
+            world_matrices[world_off..world_off + 16]
+                .copy_from_slice(&local_matrices[local_off..local_off + 16]);
+        } else if parent_idx < -1 {
+            // External parent (encoded as -2 - index)
+            let ext_idx = (-parent_idx - 2) as usize;
+            if ext_idx * 16 + 16 <= parent_world_matrices.len() {
+                let parent_off = ext_idx * 16;
+                multiply_mat4(
+                    &parent_world_matrices[parent_off..],
+                    &local_matrices[local_off..],
+                    &mut world_matrices[world_off..],
+                );
+            } else {
+                // Fallback if external parent not found
+                world_matrices[world_off..world_off + 16]
+                    .copy_from_slice(&local_matrices[local_off..local_off + 16]);
+            }
+        } else {
+            // Parent in batch - copy to temp to avoid borrow conflict
+            let parent_world_off = (parent_idx as usize) * 16;
+            let mut parent_temp = [0.0f32; 16];
+            parent_temp.copy_from_slice(&world_matrices[parent_world_off..parent_world_off + 16]);
+            multiply_mat4(
+                &parent_temp,
+                &local_matrices[local_off..],
+                &mut world_matrices[world_off..],
+            );
+        }
+    }
+
+    world_matrices
+}
