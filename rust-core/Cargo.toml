@@ -1,0 +1,39 @@
+[package]
+name = "engine-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["PlayCanvas Engine Team"]
+description = "High-performance core for PlayCanvas Engine with SIMD optimizations"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["console_error_panic_hook", "simd"]
+simd = []
+
+[dependencies]
+wasm-bindgen = "0.2.93"
+js-sys = "0.3.70"
+console_error_panic_hook = { version = "0.1.7", optional = true }
+wee_alloc = { version = "0.4.5", optional = true }
+
+[dependencies.web-sys]
+version = "0.3.70"
+features = [
+    "console",
+    "Performance",
+    "Window",
+]
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.43"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.dev]
+opt-level = 1

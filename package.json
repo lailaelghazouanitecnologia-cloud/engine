@@ -1,0 +1,43 @@
+{
+  "name": "@aspect/engine",
+  "version": "0.1.0",
+  "description": "High-performance 3D engine with Rust/WASM optimizations and Unity-like API",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build:wasm": "cd rust-core && wasm-pack build --target web --out-dir ../src/wasm/pkg",
+    "build:ts": "tsc && vite build",
+    "build": "npm run build:wasm && npm run build:ts",
+    "dev": "vite",
+    "test": "vitest",
+    "test:wasm": "cd rust-core && wasm-pack test --headless --chrome",
+    "lint": "eslint src --ext .ts",
+    "clean": "rm -rf dist src/wasm/pkg"
+  },
+  "keywords": [
+    "3d",
+    "engine",
+    "webgpu",
+    "webgl",
+    "wasm",
+    "rust",
+    "game"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "eslint": "^8.55.0",
+    "typescript": "^5.3.0",
+    "vite": "^5.0.0",
+    "vitest": "^1.0.0"
+  }
+}
