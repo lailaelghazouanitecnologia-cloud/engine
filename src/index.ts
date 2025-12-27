@@ -64,6 +64,15 @@ export {
     Color
 } from './math/Color';
 
+export {
+    MathBackend,
+    BackendType
+} from './math/MathBackend';
+
+export type {
+    BackendConfig
+} from './math/MathBackend';
+
 // ==================== WASM Bridge ====================
 export {
     WasmBridge,
