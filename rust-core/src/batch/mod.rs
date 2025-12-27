@@ -911,3 +911,138 @@ pub fn batch_update_transforms(
 
     world_matrices
 }
+
+// ==================== Additional WASM Utilities ====================
+
+/// Decompose a 4x4 matrix into Translation, Rotation (quaternion), Scale
+/// Returns 10 floats: [tx, ty, tz, qx, qy, qz, qw, sx, sy, sz]
+#[wasm_bindgen]
+pub fn mat4_decompose(matrix: &[f32]) -> Vec<f32> {
+    if matrix.len() < 16 {
+        return vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0];
+    }
+
+    let m = matrix;
+
+    // Extract translation
+    let tx = m[12];
+    let ty = m[13];
+    let tz = m[14];
+
+    // Extract scale
+    let sx = (m[0] * m[0] + m[1] * m[1] + m[2] * m[2]).sqrt();
+    let sy = (m[4] * m[4] + m[5] * m[5] + m[6] * m[6]).sqrt();
+    let sz = (m[8] * m[8] + m[9] * m[9] + m[10] * m[10]).sqrt();
+
+    // Extract rotation (remove scale)
+    let inv_sx = if sx > 1e-6 { 1.0 / sx } else { 0.0 };
+    let inv_sy = if sy > 1e-6 { 1.0 / sy } else { 0.0 };
+    let inv_sz = if sz > 1e-6 { 1.0 / sz } else { 0.0 };
+
+    // Build rotation matrix elements
+    let r00 = m[0] * inv_sx;
+    let r01 = m[1] * inv_sx;
+    let r02 = m[2] * inv_sx;
+    let r10 = m[4] * inv_sy;
+    let r11 = m[5] * inv_sy;
+    let r12 = m[6] * inv_sy;
+    let r20 = m[8] * inv_sz;
+    let r21 = m[9] * inv_sz;
+    let r22 = m[10] * inv_sz;
+
+    // Convert rotation matrix to quaternion
+    let trace = r00 + r11 + r22;
+    let (qx, qy, qz, qw);
+
+    if trace > 0.0 {
+        let s = 0.5 / (trace + 1.0).sqrt();
+        qw = 0.25 / s;
+        qx = (r12 - r21) * s;
+        qy = (r20 - r02) * s;
+        qz = (r01 - r10) * s;
+    } else if r00 > r11 && r00 > r22 {
+        let s = 2.0 * (1.0 + r00 - r11 - r22).sqrt();
+        qw = (r12 - r21) / s;
+        qx = 0.25 * s;
+        qy = (r10 + r01) / s;
+        qz = (r20 + r02) / s;
+    } else if r11 > r22 {
+        let s = 2.0 * (1.0 + r11 - r00 - r22).sqrt();
+        qw = (r20 - r02) / s;
+        qx = (r10 + r01) / s;
+        qy = 0.25 * s;
+        qz = (r21 + r12) / s;
+    } else {
+        let s = 2.0 * (1.0 + r22 - r00 - r11).sqrt();
+        qw = (r01 - r10) / s;
+        qx = (r20 + r02) / s;
+        qy = (r21 + r12) / s;
+        qz = 0.25 * s;
+    }
+
+    vec![tx, ty, tz, qx, qy, qz, qw, sx, sy, sz]
+}
+
+/// Rotate a vector by a quaternion
+/// Returns 3 floats: [x, y, z]
+#[wasm_bindgen]
+pub fn quat_rotate_vec3(quat: &[f32], vec: &[f32]) -> Vec<f32> {
+    if quat.len() < 4 || vec.len() < 3 {
+        return vec![0.0, 0.0, 0.0];
+    }
+
+    let qx = quat[0];
+    let qy = quat[1];
+    let qz = quat[2];
+    let qw = quat[3];
+    let vx = vec[0];
+    let vy = vec[1];
+    let vz = vec[2];
+
+    // q * v * q^-1
+    // Optimized formula: v' = v + 2 * q.w * (q.xyz × v) + 2 * (q.xyz × (q.xyz × v))
+
+    // t = 2 * (q.xyz × v)
+    let tx = 2.0 * (qy * vz - qz * vy);
+    let ty = 2.0 * (qz * vx - qx * vz);
+    let tz = 2.0 * (qx * vy - qy * vx);
+
+    // v' = v + q.w * t + (q.xyz × t)
+    let rx = vx + qw * tx + (qy * tz - qz * ty);
+    let ry = vy + qw * ty + (qz * tx - qx * tz);
+    let rz = vz + qw * tz + (qx * ty - qy * tx);
+
+    vec![rx, ry, rz]
+}
+
+/// Batch rotate vectors by quaternions
+/// Each quaternion rotates one vector
+#[wasm_bindgen]
+pub fn batch_rotate_vectors(quats: &[f32], vecs: &[f32], count: u32) -> Vec<f32> {
+    let count = count as usize;
+    let mut output = vec![0.0f32; count * 3];
+
+    for i in 0..count {
+        let q = i * 4;
+        let v = i * 3;
+        let o = i * 3;
+
+        let qx = quats[q];
+        let qy = quats[q + 1];
+        let qz = quats[q + 2];
+        let qw = quats[q + 3];
+        let vx = vecs[v];
+        let vy = vecs[v + 1];
+        let vz = vecs[v + 2];
+
+        let tx = 2.0 * (qy * vz - qz * vy);
+        let ty = 2.0 * (qz * vx - qx * vz);
+        let tz = 2.0 * (qx * vy - qy * vx);
+
+        output[o] = vx + qw * tx + (qy * tz - qz * ty);
+        output[o + 1] = vy + qw * ty + (qz * tx - qx * tz);
+        output[o + 2] = vz + qw * tz + (qx * ty - qy * tx);
+    }
+
+    output
+}

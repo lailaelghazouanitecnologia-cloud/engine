@@ -432,6 +432,70 @@ impl Mat4 {
         }
         true
     }
+
+    /// Decompose matrix into TRS as flat array [tx,ty,tz, qx,qy,qz,qw, sx,sy,sz]
+    /// WASM-compatible version (returns 10 floats)
+    pub fn decompose_to_array(&self) -> Vec<f32> {
+        let m = &self.data;
+
+        // Extract translation
+        let tx = m[12];
+        let ty = m[13];
+        let tz = m[14];
+
+        // Extract scale
+        let sx = (m[0] * m[0] + m[1] * m[1] + m[2] * m[2]).sqrt();
+        let sy = (m[4] * m[4] + m[5] * m[5] + m[6] * m[6]).sqrt();
+        let sz = (m[8] * m[8] + m[9] * m[9] + m[10] * m[10]).sqrt();
+
+        // Extract rotation (remove scale)
+        let inv_sx = if sx > 1e-6 { 1.0 / sx } else { 0.0 };
+        let inv_sy = if sy > 1e-6 { 1.0 / sy } else { 0.0 };
+        let inv_sz = if sz > 1e-6 { 1.0 / sz } else { 0.0 };
+
+        // Build rotation matrix
+        let r00 = m[0] * inv_sx;
+        let r01 = m[1] * inv_sx;
+        let r02 = m[2] * inv_sx;
+        let r10 = m[4] * inv_sy;
+        let r11 = m[5] * inv_sy;
+        let r12 = m[6] * inv_sy;
+        let r20 = m[8] * inv_sz;
+        let r21 = m[9] * inv_sz;
+        let r22 = m[10] * inv_sz;
+
+        // Convert rotation matrix to quaternion
+        let trace = r00 + r11 + r22;
+        let (qx, qy, qz, qw);
+
+        if trace > 0.0 {
+            let s = 0.5 / (trace + 1.0).sqrt();
+            qw = 0.25 / s;
+            qx = (r12 - r21) * s;
+            qy = (r20 - r02) * s;
+            qz = (r01 - r10) * s;
+        } else if r00 > r11 && r00 > r22 {
+            let s = 2.0 * (1.0 + r00 - r11 - r22).sqrt();
+            qw = (r12 - r21) / s;
+            qx = 0.25 * s;
+            qy = (r10 + r01) / s;
+            qz = (r20 + r02) / s;
+        } else if r11 > r22 {
+            let s = 2.0 * (1.0 + r11 - r00 - r22).sqrt();
+            qw = (r20 - r02) / s;
+            qx = (r10 + r01) / s;
+            qy = 0.25 * s;
+            qz = (r21 + r12) / s;
+        } else {
+            let s = 2.0 * (1.0 + r22 - r00 - r11).sqrt();
+            qw = (r01 - r10) / s;
+            qx = (r20 + r02) / s;
+            qy = (r21 + r12) / s;
+            qz = 0.25 * s;
+        }
+
+        vec![tx, ty, tz, qx, qy, qz, qw, sx, sy, sz]
+    }
 }
 
 // Non-WASM methods (return types not compatible with wasm-bindgen)

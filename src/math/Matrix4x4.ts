@@ -134,6 +134,72 @@ export class Matrix4x4 {
         return this;
     }
 
+    /**
+     * Decompose matrix into Translation, Rotation, Scale components
+     * @returns Object with position (Vector3), rotation (Quaternion), scale (Vector3)
+     */
+    decompose(): { position: Vector3; rotation: Quaternion; scale: Vector3 } {
+        const m = this.data;
+
+        // Extract translation
+        const position = new Vector3(m[12], m[13], m[14]);
+
+        // Extract scale
+        const sx = Math.sqrt(m[0] * m[0] + m[1] * m[1] + m[2] * m[2]);
+        const sy = Math.sqrt(m[4] * m[4] + m[5] * m[5] + m[6] * m[6]);
+        const sz = Math.sqrt(m[8] * m[8] + m[9] * m[9] + m[10] * m[10]);
+        const scale = new Vector3(sx, sy, sz);
+
+        // Extract rotation (remove scale)
+        const invSx = sx > 1e-6 ? 1 / sx : 0;
+        const invSy = sy > 1e-6 ? 1 / sy : 0;
+        const invSz = sz > 1e-6 ? 1 / sz : 0;
+
+        const r00 = m[0] * invSx;
+        const r01 = m[1] * invSx;
+        const r02 = m[2] * invSx;
+        const r10 = m[4] * invSy;
+        const r11 = m[5] * invSy;
+        const r12 = m[6] * invSy;
+        const r20 = m[8] * invSz;
+        const r21 = m[9] * invSz;
+        const r22 = m[10] * invSz;
+
+        // Convert rotation matrix to quaternion
+        const trace = r00 + r11 + r22;
+        let qx: number, qy: number, qz: number, qw: number;
+
+        if (trace > 0) {
+            const s = 0.5 / Math.sqrt(trace + 1);
+            qw = 0.25 / s;
+            qx = (r12 - r21) * s;
+            qy = (r20 - r02) * s;
+            qz = (r01 - r10) * s;
+        } else if (r00 > r11 && r00 > r22) {
+            const s = 2 * Math.sqrt(1 + r00 - r11 - r22);
+            qw = (r12 - r21) / s;
+            qx = 0.25 * s;
+            qy = (r10 + r01) / s;
+            qz = (r20 + r02) / s;
+        } else if (r11 > r22) {
+            const s = 2 * Math.sqrt(1 + r11 - r00 - r22);
+            qw = (r20 - r02) / s;
+            qx = (r10 + r01) / s;
+            qy = 0.25 * s;
+            qz = (r21 + r12) / s;
+        } else {
+            const s = 2 * Math.sqrt(1 + r22 - r00 - r11);
+            qw = (r01 - r10) / s;
+            qx = (r20 + r02) / s;
+            qy = (r21 + r12) / s;
+            qz = 0.25 * s;
+        }
+
+        const rotation = new Quaternion(qx, qy, qz, qw);
+
+        return { position, rotation, scale };
+    }
+
     multiply(other: Matrix4x4): Matrix4x4 {
         return Matrix4x4.multiply(this, other);
     }
