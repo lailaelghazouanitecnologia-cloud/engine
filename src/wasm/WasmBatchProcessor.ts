@@ -61,6 +61,8 @@
  * └────────────────────────────────────────────────────────────────────────┘
  */
 
+import { WasmBridge } from './WasmBridge';
+
 /** Operation codes for batch commands */
 export enum WasmOpCode {
     // Vector operations (0x00-0x0F)
@@ -246,13 +248,13 @@ export class WasmBatchProcessor {
         executionTimeMs: 0,
     };
 
-    // WASM function pointers
+    // WASM function pointer (matches execute_batch signature)
     private _wasmExecuteBatch: ((
-        commands: number,
+        commands: Uint32Array,
         commandCount: number,
-        data: number,
-        output: number
-    ) => void) | null = null;
+        data: Float32Array,
+        output: Float32Array
+    ) => number) | null = null;
 
     private constructor(options: {
         commandBufferSize?: number;
@@ -592,16 +594,22 @@ export class WasmBatchProcessor {
         this._commandBuffer[this._commandOffset++] = ops[0].dataOffset;
         this._commandBuffer[this._commandOffset++] = ops[0].outputOffset;
 
-        if (this._wasmExecuteBatch) {
-            // Execute via WASM
-            this._wasmExecuteBatch(
-                commandStart,
-                1,
-                ops[0].dataOffset,
-                ops[0].outputOffset
-            );
+        // Try WASM execution first
+        const bridge = WasmBridge.instance;
+        if (bridge.isReady && !bridge.usingFallback && this._wasmExecuteBatch) {
+            try {
+                // Create command slice for this batch
+                const cmdSlice = this._commandBuffer.subarray(commandStart, this._commandOffset);
+                const dataSlice = this._dataBuffer.subarray(0, this._dataOffset);
+                const outputSlice = this._outputBuffer.subarray(0, this._outputOffset);
+
+                this._wasmExecuteBatch(cmdSlice, 1, dataSlice, outputSlice);
+            } catch (e) {
+                // Fallback on error
+                this._executeFallback(opCode, ops);
+            }
         } else {
-            // Fallback execution
+            // JavaScript fallback
             this._executeFallback(opCode, ops);
         }
 
@@ -835,7 +843,47 @@ export class WasmBatchProcessor {
     /**
      * Set WASM execute batch function
      */
-    setWasmExecutor(fn: (commands: number, commandCount: number, data: number, output: number) => void): void {
+    setWasmExecutor(fn: (commands: Uint32Array, commandCount: number, data: Float32Array, output: Float32Array) => number): void {
         this._wasmExecuteBatch = fn;
+    }
+
+    /**
+     * Initialize the batch processor with WASM module
+     * Should be called after WasmBridge.init()
+     */
+    async init(): Promise<void> {
+        try {
+            const bridge = WasmBridge.instance;
+            if (!bridge.isReady) {
+                console.warn('[WasmBatchProcessor] WasmBridge not ready, using fallback');
+                return;
+            }
+
+            if (bridge.usingFallback) {
+                console.log('[WasmBatchProcessor] Using JavaScript fallback');
+                return;
+            }
+
+            // Dynamically import the WASM module to get execute_batch
+            const isNode = typeof process !== 'undefined' && process.versions?.node;
+            let wasmModule: any;
+
+            if (isNode) {
+                const { pathToFileURL } = await import('url');
+                const moduleUrl = pathToFileURL('/home/user/engine/dist/wasm/engine_core.js').href;
+                wasmModule = await import(moduleUrl);
+            } else {
+                wasmModule = await import('/dist/wasm/engine_core.js');
+            }
+
+            if (typeof wasmModule.execute_batch === 'function') {
+                this._wasmExecuteBatch = wasmModule.execute_batch;
+                console.log('[WasmBatchProcessor] WASM execute_batch connected');
+            } else {
+                console.warn('[WasmBatchProcessor] execute_batch not found in WASM module');
+            }
+        } catch (e) {
+            console.warn('[WasmBatchProcessor] Failed to connect WASM:', e);
+        }
     }
 }
