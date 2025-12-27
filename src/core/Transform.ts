@@ -9,9 +9,9 @@ import { Quaternion } from '../math/Quaternion';
 import { Matrix4x4 } from '../math/Matrix4x4';
 
 export class Transform extends Component {
-    private _localPosition: Vector3 = Vector3.zero;
-    private _localRotation: Quaternion = Quaternion.identity;
-    private _localScale: Vector3 = Vector3.one;
+    private _localPosition: Vector3 = new Vector3(0, 0, 0);
+    private _localRotation: Quaternion = new Quaternion(0, 0, 0, 1);
+    private _localScale: Vector3 = new Vector3(1, 1, 1);
 
     private _parent: Transform | null = null;
     private _children: Transform[] = [];
@@ -410,6 +410,16 @@ export class Transform extends Component {
     /** @internal Get dirty flag */
     get isDirty(): boolean {
         return this._dirty;
+    }
+
+    /**
+     * @internal Set matrices from batch update (used by TransformBatchUpdater)
+     * This bypasses normal lazy evaluation for batch performance
+     */
+    _setMatricesFromBatch(worldMatrix: Matrix4x4): void {
+        this._localToWorldMatrix = worldMatrix;
+        this._worldToLocalMatrix = worldMatrix.inverse;
+        this._dirty = false;
     }
 
     /** Iterate over children */

@@ -108,6 +108,32 @@ export class Matrix4x4 {
         return m;
     }
 
+    /** Get the matrix data as Float32Array (returns internal reference) */
+    toFloat32Array(): Float32Array {
+        return this.data;
+    }
+
+    /** Create matrix from Float32Array data */
+    static fromFloat32Array(arr: Float32Array | ArrayLike<number>): Matrix4x4 {
+        const m = new Matrix4x4();
+        if (arr.length >= 16) {
+            for (let i = 0; i < 16; i++) {
+                m.data[i] = arr[i];
+            }
+        }
+        return m;
+    }
+
+    /** Set matrix data from Float32Array */
+    setFromFloat32Array(arr: Float32Array | ArrayLike<number>): this {
+        if (arr.length >= 16) {
+            for (let i = 0; i < 16; i++) {
+                this.data[i] = arr[i];
+            }
+        }
+        return this;
+    }
+
     multiply(other: Matrix4x4): Matrix4x4 {
         return Matrix4x4.multiply(this, other);
     }
