@@ -26,13 +26,44 @@ export enum OperationType {
     PARTICLES_SORT,
 }
 
-/** Simple hash for Float32Array (for deduplication) */
-function hashFloat32Array(arr: Float32Array, tolerance: number = 0.0001): number {
-    let hash = 0;
+/**
+ * Fast hash for Float32Array using raw bits (no Math operations)
+ * Uses typed array view to get integer representation of floats
+ */
+const _hashView = new DataView(new ArrayBuffer(4));
+
+function hashFloat32Fast(arr: Float32Array): number {
+    // Sample 4 elements max for speed (corners of matrix)
+    const len = arr.length;
+    let hash = len;
+
+    // Use bit representation directly - much faster than Math.round
+    if (len >= 1) {
+        _hashView.setFloat32(0, arr[0], true);
+        hash = ((hash << 5) - hash + _hashView.getInt32(0, true)) | 0;
+    }
+    if (len >= 4) {
+        _hashView.setFloat32(0, arr[3], true);
+        hash = ((hash << 5) - hash + _hashView.getInt32(0, true)) | 0;
+    }
+    if (len >= 12) {
+        _hashView.setFloat32(0, arr[11], true);
+        hash = ((hash << 5) - hash + _hashView.getInt32(0, true)) | 0;
+    }
+    if (len >= 16) {
+        _hashView.setFloat32(0, arr[15], true);
+        hash = ((hash << 5) - hash + _hashView.getInt32(0, true)) | 0;
+    }
+
+    return hash;
+}
+
+/** Full hash when exact matching is needed (slower but complete) */
+function hashFloat32Full(arr: Float32Array): number {
+    let hash = arr.length;
     for (let i = 0; i < arr.length; i++) {
-        // Quantize to reduce precision for near-duplicate detection
-        const quantized = Math.round(arr[i] / tolerance);
-        hash = ((hash << 5) - hash + quantized) | 0;
+        _hashView.setFloat32(0, arr[i], true);
+        hash = ((hash << 5) - hash + _hashView.getInt32(0, true)) | 0;
     }
     return hash;
 }
@@ -105,6 +136,11 @@ export class OperationPool {
     private _cacheMaxAge: number = 5; // Frames to keep cached results
 
     private _isProcessing: boolean = false;
+
+    // Configuration
+    private _enableDedup: boolean = true;
+    private _enableCache: boolean = true;
+
     private _stats = {
         operationsQueued: 0,
         operationsProcessed: 0,
@@ -113,6 +149,16 @@ export class OperationPool {
         cacheHits: 0,
         lastFlushTime: 0,
     };
+
+    /** Enable/disable deduplication (disable for mostly unique operations) */
+    setDeduplication(enabled: boolean): void {
+        this._enableDedup = enabled;
+    }
+
+    /** Enable/disable cross-frame caching */
+    setCaching(enabled: boolean): void {
+        this._enableCache = enabled;
+    }
 
     // Buffer sizes
     private static readonly MAX_BATCH_SIZE = 1024;
@@ -145,37 +191,54 @@ export class OperationPool {
         this._cleanupCache();
     }
 
-    /** Queue a matrix multiply operation with deduplication */
+    /** Queue a matrix multiply operation with optional deduplication */
     queueMatrixMultiply(
         a: Float32Array,
         b: Float32Array,
         callback: (result: Float32Array) => void
     ): void {
-        // Compute hash for deduplication
-        const hashA = hashFloat32Array(a);
-        const hashB = hashFloat32Array(b);
-        const combinedHash = combineHashes(hashA, hashB);
-
-        // Check result cache first
-        const cached = this._resultCache.get(combinedHash);
-        if (cached && cached.frameId >= this._currentFrameId - this._cacheMaxAge) {
-            callback(cached.result);
-            this._stats.cacheHits++;
+        // Fast path: no dedup/cache
+        if (!this._enableDedup && !this._enableCache) {
+            this._matrixMultiplies.push({
+                a,
+                b,
+                hash: 0,
+                callbacks: [callback],
+            });
+            this._stats.operationsQueued++;
             return;
         }
 
+        // Compute hash for deduplication
+        const hashA = hashFloat32Fast(a);
+        const hashB = hashFloat32Fast(b);
+        const combinedHash = combineHashes(hashA, hashB);
+
+        // Check result cache first
+        if (this._enableCache) {
+            const cached = this._resultCache.get(combinedHash);
+            if (cached && cached.frameId >= this._currentFrameId - this._cacheMaxAge) {
+                callback(cached.result);
+                this._stats.cacheHits++;
+                return;
+            }
+        }
+
         // Check if same operation already queued this frame
-        const existingIndex = this._matrixHashMap.get(combinedHash);
-        if (existingIndex !== undefined) {
-            // Add callback to existing operation
-            this._matrixMultiplies[existingIndex].callbacks.push(callback);
-            this._stats.operationsDeduplicated++;
-            return;
+        if (this._enableDedup) {
+            const existingIndex = this._matrixHashMap.get(combinedHash);
+            if (existingIndex !== undefined) {
+                this._matrixMultiplies[existingIndex].callbacks.push(callback);
+                this._stats.operationsDeduplicated++;
+                return;
+            }
         }
 
         // Queue new operation
         const index = this._matrixMultiplies.length;
-        this._matrixHashMap.set(combinedHash, index);
+        if (this._enableDedup) {
+            this._matrixHashMap.set(combinedHash, index);
+        }
         this._matrixMultiplies.push({
             a,
             b,
@@ -185,36 +248,55 @@ export class OperationPool {
         this._stats.operationsQueued++;
     }
 
-    /** Queue a quaternion SLERP operation with deduplication */
+    /** Queue a quaternion SLERP operation with optional deduplication */
     queueQuatSlerp(
         a: Float32Array,
         b: Float32Array,
         t: number,
         callback: (result: Float32Array) => void
     ): void {
-        const hashA = hashFloat32Array(a);
-        const hashB = hashFloat32Array(b);
-        const tHash = Math.round(t * 10000);
+        // Fast path: no dedup/cache
+        if (!this._enableDedup && !this._enableCache) {
+            this._quatSlerps.push({
+                a,
+                b,
+                t,
+                hash: 0,
+                callbacks: [callback],
+            });
+            this._stats.operationsQueued++;
+            return;
+        }
+
+        const hashA = hashFloat32Fast(a);
+        const hashB = hashFloat32Fast(b);
+        const tHash = (t * 10000) | 0; // Faster than Math.round
         const combinedHash = combineHashes(combineHashes(hashA, hashB), tHash);
 
         // Check result cache
-        const cached = this._resultCache.get(combinedHash);
-        if (cached && cached.frameId >= this._currentFrameId - this._cacheMaxAge) {
-            callback(cached.result);
-            this._stats.cacheHits++;
-            return;
+        if (this._enableCache) {
+            const cached = this._resultCache.get(combinedHash);
+            if (cached && cached.frameId >= this._currentFrameId - this._cacheMaxAge) {
+                callback(cached.result);
+                this._stats.cacheHits++;
+                return;
+            }
         }
 
         // Check if already queued
-        const existingIndex = this._quatHashMap.get(combinedHash);
-        if (existingIndex !== undefined) {
-            this._quatSlerps[existingIndex].callbacks.push(callback);
-            this._stats.operationsDeduplicated++;
-            return;
+        if (this._enableDedup) {
+            const existingIndex = this._quatHashMap.get(combinedHash);
+            if (existingIndex !== undefined) {
+                this._quatSlerps[existingIndex].callbacks.push(callback);
+                this._stats.operationsDeduplicated++;
+                return;
+            }
         }
 
         const index = this._quatSlerps.length;
-        this._quatHashMap.set(combinedHash, index);
+        if (this._enableDedup) {
+            this._quatHashMap.set(combinedHash, index);
+        }
         this._quatSlerps.push({
             a,
             b,
