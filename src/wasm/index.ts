@@ -13,3 +13,6 @@ export type {
 } from './WasmBridge';
 
 export { OperationPool, OperationType } from './OperationPool';
+
+export { WasmBatchProcessor, WasmOpCode } from './WasmBatchProcessor';
+export type { BatchStats } from './WasmBatchProcessor';

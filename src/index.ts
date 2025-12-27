@@ -68,7 +68,9 @@ export {
 export {
     WasmBridge,
     OperationPool,
-    OperationType
+    OperationType,
+    WasmBatchProcessor,
+    WasmOpCode,
 } from './wasm';
 
 export type {
@@ -76,7 +78,8 @@ export type {
     WasmMathExports,
     WasmCullingExports,
     WasmAnimationExports,
-    WasmParticlesExports
+    WasmParticlesExports,
+    BatchStats,
 } from './wasm';
 
 // ==================== Data-Oriented Design (DOD) ====================

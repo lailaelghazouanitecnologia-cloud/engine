@@ -14,6 +14,7 @@ pub mod culling;
 pub mod animation;
 pub mod particles;
 pub mod memory;
+pub mod batch;
 
 #[cfg(feature = "console_error_panic_hook")]
 pub use console_error_panic_hook::set_once as set_panic_hook;
