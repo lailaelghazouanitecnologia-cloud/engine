@@ -7,6 +7,7 @@ import { EngineObject } from './Object';
 import { Component } from './Component';
 import { Transform } from './Transform';
 import { Behaviour } from './Behaviour';
+import { SceneManager } from './Scene';
 import type { Scene } from './Scene';
 
 export class GameObject extends EngineObject {
@@ -48,22 +49,24 @@ export class GameObject extends EngineObject {
         return go;
     }
 
-    /** Find a GameObject by name */
+    /** Find a GameObject by name in the active scene */
     static find(name: string): GameObject | null {
-        // TODO: Search in active scene
-        return null;
+        const scene = SceneManager.activeScene;
+        if (!scene) return null;
+        return scene.findGameObject(name);
     }
 
-    /** Find all GameObjects with tag */
+    /** Find all GameObjects with tag in the active scene */
     static findGameObjectsWithTag(tag: string): GameObject[] {
-        // TODO: Search in active scene
-        return [];
+        const scene = SceneManager.activeScene;
+        if (!scene) return [];
+        return scene.findGameObjectsWithTag(tag);
     }
 
-    /** Find a GameObject with tag */
+    /** Find a GameObject with tag in the active scene (returns first match) */
     static findWithTag(tag: string): GameObject | null {
-        // TODO: Search in active scene
-        return null;
+        const results = GameObject.findGameObjectsWithTag(tag);
+        return results.length > 0 ? results[0] : null;
     }
 
     // ==================== Properties ====================
