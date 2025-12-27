@@ -118,6 +118,26 @@ export type {
     BackendConfig
 } from './math/MathBackend';
 
+// ==================== Geometry ====================
+export {
+    Geometry,
+    calculateNormals,
+    calculateTangents,
+    BoxGeometry,
+    SphereGeometry,
+    PlaneGeometry,
+    CylinderGeometry,
+    QuadGeometry,
+} from './geometry';
+
+export type {
+    BoxGeometryOptions,
+    SphereGeometryOptions,
+    PlaneGeometryOptions,
+    CylinderGeometryOptions,
+    QuadGeometryOptions,
+} from './geometry';
+
 // ==================== WASM Bridge ====================
 import { WasmBridge as _WasmBridge, OperationPool as _OperationPool } from './wasm';
 export {
