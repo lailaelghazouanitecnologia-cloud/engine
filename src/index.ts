@@ -39,6 +39,51 @@ export {
     Time
 } from './core/Time';
 
+export {
+    EventHandler
+} from './core/EventHandler';
+
+export {
+    EventHandle
+} from './core/EventHandle';
+
+export type {
+    EventCallback
+} from './core/EventHandle';
+
+// ==================== Input ====================
+export {
+    // Keyboard
+    Keyboard,
+    KeyboardEvent,
+    // Mouse
+    Mouse,
+    MouseEvent,
+    isMousePointerLocked,
+    // Constants
+    KEY_BACKSPACE, KEY_TAB, KEY_RETURN, KEY_ENTER, KEY_SHIFT, KEY_CONTROL, KEY_ALT,
+    KEY_PAUSE, KEY_CAPS_LOCK, KEY_ESCAPE, KEY_SPACE, KEY_PAGE_UP, KEY_PAGE_DOWN,
+    KEY_END, KEY_HOME, KEY_LEFT, KEY_UP, KEY_RIGHT, KEY_DOWN, KEY_PRINT_SCREEN,
+    KEY_INSERT, KEY_DELETE,
+    KEY_0, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9,
+    KEY_A, KEY_B, KEY_C, KEY_D, KEY_E, KEY_F, KEY_G, KEY_H, KEY_I, KEY_J,
+    KEY_K, KEY_L, KEY_M, KEY_N, KEY_O, KEY_P, KEY_Q, KEY_R, KEY_S, KEY_T,
+    KEY_U, KEY_V, KEY_W, KEY_X, KEY_Y, KEY_Z,
+    KEY_NUMPAD_0, KEY_NUMPAD_1, KEY_NUMPAD_2, KEY_NUMPAD_3, KEY_NUMPAD_4,
+    KEY_NUMPAD_5, KEY_NUMPAD_6, KEY_NUMPAD_7, KEY_NUMPAD_8, KEY_NUMPAD_9,
+    KEY_MULTIPLY, KEY_ADD, KEY_SEPARATOR, KEY_SUBTRACT, KEY_DECIMAL, KEY_DIVIDE,
+    KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_F5, KEY_F6, KEY_F7, KEY_F8, KEY_F9,
+    KEY_F10, KEY_F11, KEY_F12,
+    KEY_SEMICOLON, KEY_EQUAL, KEY_COMMA, KEY_PERIOD, KEY_SLASH, KEY_BACK_SLASH,
+    KEY_OPEN_BRACKET, KEY_CLOSE_BRACKET, KEY_WINDOWS, KEY_CONTEXT_MENU, KEY_META,
+    MOUSEBUTTON_NONE, MOUSEBUTTON_LEFT, MOUSEBUTTON_MIDDLE, MOUSEBUTTON_RIGHT,
+} from './input';
+
+export type {
+    KeyboardOptions,
+    PointerLockCallback,
+} from './input';
+
 // ==================== Math ====================
 export {
     Vector3
