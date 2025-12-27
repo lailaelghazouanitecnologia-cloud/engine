@@ -79,6 +79,44 @@ export type {
     WasmParticlesExports
 } from './wasm';
 
+// ==================== Data-Oriented Design (DOD) ====================
+export {
+    // Data Matrix
+    DataMatrix,
+    DataColumn,
+    TransformSchema,
+    PhysicsSchema,
+    BoundsSchema,
+    // Dirty Tracker
+    DirtyTracker,
+    DirtyChannel,
+    HierarchyDirtyPropagator,
+    // Compute Pipeline
+    ComputePipeline,
+    ComputePassPriority,
+    WorldMatrixPassDef,
+    PhysicsPassDef,
+    // Prediction System
+    PredictionSystem,
+    PredictionStrategy,
+    ColumnPredictor,
+    PredictionValidator,
+    // Entity Manager
+    EntityManager,
+    ComponentFlags,
+} from './data';
+
+export type {
+    MatrixSchema,
+    ColumnDefinition,
+    ComputePassDefinition,
+    ComputePass,
+    BufferBinding,
+    ValidationResult,
+    PredictionStats,
+    EntityHandle,
+} from './data';
+
 // ==================== Engine Initialization ====================
 
 /**
