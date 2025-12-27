@@ -143,7 +143,38 @@ console.log('║                    FAIR COMPARISON: Legacy vs TypeScript       
 console.log('║              (Same patterns, same method signatures)                          ║');
 console.log('╚═══════════════════════════════════════════════════════════════════════════════╝\n');
 
+console.log('⚠️  NOTE: JIT Inline Cache behavior affects mixed-class benchmarks.');
+console.log('    Results show relative performance when BOTH classes are used together.\n');
+
 const ITERATIONS = 1_000_000;
+
+// ==================== Pre-warm BOTH classes to avoid JIT pollution ====================
+// This ensures fair comparison by warming up both hidden classes first
+{
+    const legacyA = new LegacyVec3(1, 2, 3);
+    const legacyB = new LegacyVec3(4, 5, 6);
+    const legacyOut = new LegacyVec3();
+    const tsA = new Vector3(1, 2, 3);
+    const tsB = new Vector3(4, 5, 6);
+    const tsOut = new Vector3();
+
+    // Interleaved warmup to establish polymorphic inline caches
+    for (let i = 0; i < 100000; i++) {
+        legacyOut.add2(legacyA, legacyB);
+        tsOut.add2(tsA, tsB);
+        legacyOut.sub2(legacyA, legacyB);
+        tsOut.sub2(tsA, tsB);
+        legacyA.dot(legacyB);
+        tsA.dot(tsB);
+        legacyOut.cross(legacyA, legacyB);
+        tsOut.cross(tsA, tsB);
+        legacyOut.normalize();
+        tsOut.normalize();
+        legacyOut.lerp(legacyA, legacyB, 0.5);
+        tsOut.lerp(tsA, tsB, 0.5);
+    }
+    console.log('✅ Pre-warmed both Legacy and TypeScript classes\n');
+}
 
 // ==================== Pattern 1: add2(a, b) - write to output ====================
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -364,6 +395,12 @@ console.log('1. When using EQUIVALENT patterns, performance is nearly identical 
 console.log('2. TypeScript wins on some operations due to better JIT optimization');
 console.log('3. Both use in-place mutation for hot paths');
 console.log('4. Static ToRef methods provide zero-allocation option');
+console.log('');
+console.log('⚠️  JIT BENCHMARK CAVEAT:');
+console.log('   The "first test" in a benchmark gets ~2ns (monomorphic IC optimization)');
+console.log('   Subsequent tests get ~7ns (polymorphic IC)');
+console.log('   In REAL applications with polymorphic usage, BOTH are ~7ns');
+console.log('   See add2-deep-dive.ts for proof of equal performance');
 console.log('');
 console.log('RECOMMENDATION:');
 console.log('✅ Use our TypeScript Vector3 - it matches or exceeds Legacy performance');
