@@ -128,14 +128,15 @@ export class WasmBridge {
             // Derive the glue code path from the WASM path
             const glueCodePath = wasmPath.replace('_bg.wasm', '.js').replace('.wasm', '.js');
 
-            // Dynamic import of the wasm-bindgen generated module
-            if (typeof process !== 'undefined' && process.versions?.node) {
-                // Node.js environment
-                const modulePath = glueCodePath.startsWith('/')
-                    ? glueCodePath
-                    : new URL(glueCodePath, import.meta.url).pathname;
+            // Check if we're in Node.js
+            const isNode = typeof process !== 'undefined' && process.versions?.node;
 
-                wasmModule = await import(modulePath);
+            // Dynamic import of the wasm-bindgen generated module
+            if (isNode) {
+                // Node.js environment - need to use file:// URL for import
+                const { pathToFileURL } = await import('url');
+                const moduleUrl = pathToFileURL(glueCodePath).href;
+                wasmModule = await import(moduleUrl);
             } else {
                 // Browser environment
                 wasmModule = await import(glueCodePath);
@@ -144,7 +145,16 @@ export class WasmBridge {
             // Initialize the WASM module
             // The default export is the init function
             if (typeof wasmModule.default === 'function') {
-                await wasmModule.default(wasmPath);
+                if (isNode) {
+                    // In Node.js, we need to load the WASM buffer manually
+                    // because fetch() doesn't work with file:// URLs
+                    const fs = await import('fs/promises');
+                    const wasmBuffer = await fs.readFile(wasmPath);
+                    await wasmModule.default(wasmBuffer);
+                } else {
+                    // In browser, pass the URL and let it fetch
+                    await wasmModule.default(wasmPath);
+                }
             }
 
             // Create adapter module that wraps wasm-bindgen classes
