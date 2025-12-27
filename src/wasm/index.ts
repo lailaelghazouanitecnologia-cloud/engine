@@ -16,3 +16,6 @@ export { OperationPool, OperationType } from './OperationPool';
 
 export { WasmBatchProcessor, WasmOpCode } from './WasmBatchProcessor';
 export type { BatchStats } from './WasmBatchProcessor';
+
+export { WasmBitset } from './WasmBitset';
+export type { WasmBitsetExports } from './WasmBitset';

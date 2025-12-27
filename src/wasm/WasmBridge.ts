@@ -6,6 +6,7 @@
 import type { Vector3 } from '../math/Vector3';
 import type { Matrix4x4 } from '../math/Matrix4x4';
 import type { Quaternion } from '../math/Quaternion';
+import type { WasmBitsetExports } from './WasmBitset';
 
 // Type definitions for WASM exports
 export interface WasmMathExports {
@@ -66,6 +67,7 @@ export interface WasmModule {
     culling: WasmCullingExports;
     animation: WasmAnimationExports;
     particles: WasmParticlesExports;
+    bitset?: WasmBitsetExports; // Optional - falls back to JS if not available
     memory: WebAssembly.Memory;
 }
 

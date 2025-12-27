@@ -4,6 +4,11 @@
  * Uses bitsets for O(1) dirty checking and efficient iteration.
  * Supports multiple "dirty channels" for different types of changes.
  *
+ * WASM OPTIMIZATION:
+ * Heavy operations (popcount, getSetIndices, or, and, propagation) use
+ * WasmBitset which automatically switches to WASM for large datasets.
+ * See WasmBitset for threshold rules (RULE 1-4).
+ *
  * Architecture:
  * ┌────────────────────────────────────────────────────────────────┐
  * │                       DirtyTracker                              │
@@ -25,6 +30,8 @@
  * │ PHYSICS: [1, 3, 7, 23, ...]                                    │
  * └────────────────────────────────────────────────────────────────┘
  */
+
+import { WasmBitset } from '../wasm/WasmBitset';
 
 /** Dirty channels for different types of changes */
 export enum DirtyChannel {
@@ -72,6 +79,11 @@ class Bitset {
         return this._popCount;
     }
 
+    /** Direct access to words for WASM operations */
+    get words(): Uint32Array {
+        return this._words;
+    }
+
     /** Set bit at index */
     set(index: number): boolean {
         const wordIndex = Math.floor(index / BITS_PER_WORD);
@@ -113,22 +125,10 @@ class Bitset {
         this._popCount = 0;
     }
 
-    /** Get all set indices */
+    /** Get all set indices - uses WASM for large bitsets */
     getSetIndices(): number[] {
-        const indices: number[] = [];
-        for (let w = 0; w < this._words.length; w++) {
-            let word = this._words[w];
-            if (word === 0) continue;
-
-            const baseIndex = w * BITS_PER_WORD;
-            while (word !== 0) {
-                const bit = word & -word; // Isolate lowest set bit
-                const bitIndex = Math.log2(bit) | 0;
-                indices.push(baseIndex + bitIndex);
-                word &= word - 1; // Clear lowest set bit
-            }
-        }
-        return indices;
+        // Delegate to WasmBitset which handles threshold switching
+        return WasmBitset.getSetIndices(this._words);
     }
 
     /** Iterate over set indices (generator for memory efficiency) */
@@ -158,39 +158,21 @@ class Bitset {
         this._capacity = newCapacity;
     }
 
-    /** OR with another bitset */
+    /** OR with another bitset - uses WASM for large bitsets */
     or(other: Bitset): void {
-        const len = Math.min(this._words.length, other._words.length);
-        for (let i = 0; i < len; i++) {
-            this._words[i] |= other._words[i];
-        }
+        WasmBitset.or(this._words, other._words);
         this._recountBits();
     }
 
-    /** AND with another bitset */
+    /** AND with another bitset - uses WASM for large bitsets */
     and(other: Bitset): void {
-        const len = Math.min(this._words.length, other._words.length);
-        for (let i = 0; i < len; i++) {
-            this._words[i] &= other._words[i];
-        }
-        // Clear any words beyond other's length
-        for (let i = len; i < this._words.length; i++) {
-            this._words[i] = 0;
-        }
+        WasmBitset.and(this._words, other._words);
         this._recountBits();
     }
 
-    /** Recount population */
+    /** Recount population - uses WASM for large bitsets */
     private _recountBits(): void {
-        this._popCount = 0;
-        for (let i = 0; i < this._words.length; i++) {
-            // Brian Kernighan's algorithm
-            let word = this._words[i];
-            while (word !== 0) {
-                word &= word - 1;
-                this._popCount++;
-            }
-        }
+        this._popCount = WasmBitset.popcount(this._words);
     }
 
     /** Clone the bitset */
@@ -224,6 +206,11 @@ class ChannelTracker {
 
     get dirtyCount(): number {
         return this._current.count;
+    }
+
+    /** Direct access to current bitset words for WASM operations */
+    get currentWords(): Uint32Array {
+        return this._current.words;
     }
 
     /** Mark entity as dirty */
@@ -314,6 +301,11 @@ export class DirtyTracker {
         this._setupDefaultPropagation();
     }
 
+    /** Get current capacity (max entity count) */
+    get capacity(): number {
+        return this._capacity;
+    }
+
     /** Setup default dirty propagation rules */
     private _setupDefaultPropagation(): void {
         // Transform changes propagate to world matrix and bounds
@@ -386,6 +378,11 @@ export class DirtyTracker {
         return this._channels.get(channel)?.dirtyCount ?? 0;
     }
 
+    /** Get raw bitset words for a channel (for WASM operations) */
+    getChannelWords(channel: DirtyChannel): Uint32Array | null {
+        return this._channels.get(channel)?.currentWords ?? null;
+    }
+
     /** Iterate dirty entities in a channel */
     *iterateDirty(channel: DirtyChannel): Generator<number> {
         const tracker = this._channels.get(channel);
@@ -436,6 +433,10 @@ export class DirtyTracker {
 
 /**
  * HierarchyDirtyPropagator - Propagates dirty flags through transform hierarchy
+ *
+ * WASM OPTIMIZATION:
+ * For large hierarchies (1000+ entities), uses WasmBitset.propagateDirtyToChildren
+ * which processes parent-child relationships in a tight loop without GC pressure.
  */
 export class HierarchyDirtyPropagator {
     private _tracker: DirtyTracker;
@@ -454,21 +455,32 @@ export class HierarchyDirtyPropagator {
     /**
      * Propagate dirty flags from parents to children
      * When a parent's transform changes, all children need to recalculate world matrix
+     *
+     * Uses WASM for large hierarchies (see WasmBitset RULE 3/4)
      */
     propagateToChildren(): void {
-        const dirtyParents = new Set(this._tracker.getDirtyList(DirtyChannel.TRANSFORM));
+        const dirtyParentsWords = this._tracker.getChannelWords(DirtyChannel.TRANSFORM);
+        const worldMatrixWords = this._tracker.getChannelWords(DirtyChannel.WORLD_MATRIX);
 
-        for (let i = 0; i < this._parentIndices.length; i++) {
-            const parentIdx = this._parentIndices[i];
-            if (parentIdx >= 0 && dirtyParents.has(parentIdx)) {
-                this._tracker.markDirty(i, DirtyChannel.WORLD_MATRIX);
-            }
+        if (!dirtyParentsWords || !worldMatrixWords) {
+            return;
         }
+
+        // Use WasmBitset for WASM-optimized propagation
+        // This operates directly on the bitset words without creating JS objects
+        WasmBitset.propagateDirtyToChildren(
+            this._parentIndices,
+            dirtyParentsWords,
+            worldMatrixWords
+        );
     }
 
     /**
      * Propagate dirty flags up the hierarchy
      * Used for bounds recalculation when child bounds change
+     *
+     * Note: This operation is inherently serial (following parent chain)
+     * so WASM optimization has limited benefit. Uses JS implementation.
      */
     propagateToParents(channel: DirtyChannel): void {
         const dirty = this._tracker.getDirtyList(channel);
