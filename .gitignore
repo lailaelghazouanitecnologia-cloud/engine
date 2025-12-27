@@ -6,6 +6,9 @@ dist/
 build/
 *.wasm
 
+# Rust
+rust-core/target/
+
 # IDE
 .vscode/
 .idea/
