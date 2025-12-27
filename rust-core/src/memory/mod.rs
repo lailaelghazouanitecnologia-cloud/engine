@@ -39,7 +39,7 @@ pub fn free_u32(ptr: *mut u32, size: usize) {
 }
 
 /// Get WASM memory
-#[wasm_bindgen]
-pub fn memory() -> JsValue {
+#[wasm_bindgen(js_name = "getMemory")]
+pub fn get_memory() -> JsValue {
     wasm_bindgen::memory()
 }

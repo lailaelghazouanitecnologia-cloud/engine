@@ -388,8 +388,8 @@ export class OperationPool {
         const count = this._matrixMultiplies.length;
         if (count === 0) return;
 
-        // For small counts, individual calls are fine
-        if (count < 4) {
+        // For small counts or counts exceeding buffer, use individual calls
+        if (count < 4 || count > OperationPool.MAX_BATCH_SIZE) {
             for (const op of this._matrixMultiplies) {
                 const result = module.math.mat4_multiply(op.a, op.b);
                 this._cacheAndDeliver(op.hash, result, op.callbacks);

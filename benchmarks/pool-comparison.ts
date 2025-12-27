@@ -5,8 +5,18 @@
  */
 
 import { OperationPool } from '../src/wasm/OperationPool';
+import { WasmBridge } from '../src/wasm/WasmBridge';
 
-console.warn = () => {};
+// Initialize WASM first
+console.log('Initializing WASM...');
+try {
+    await WasmBridge.init('/home/user/engine/dist/wasm/engine_core_bg.wasm');
+    const bridge = WasmBridge.instance;
+    console.log('WASM Status:', bridge.isReady && !bridge.usingFallback ? '✅ WASM Active' : '⚠️ JS Fallback');
+} catch (e) {
+    console.log('WASM Status: ❌ Error -', e);
+}
+console.log('');
 
 function randomMatrix(): Float32Array {
     return new Float32Array(16).map(() => Math.random() * 2 - 1);

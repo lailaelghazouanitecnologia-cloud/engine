@@ -347,38 +347,6 @@ impl Mat4 {
         }
     }
 
-    /// Decompose matrix into TRS
-    pub fn decompose(&self) -> (Vec3, Quat, Vec3) {
-        let m = &self.data;
-
-        // Extract translation
-        let position = Vec3::new(m[12], m[13], m[14]);
-
-        // Extract scale
-        let sx = Vec3::new(m[0], m[1], m[2]).length();
-        let sy = Vec3::new(m[4], m[5], m[6]).length();
-        let sz = Vec3::new(m[8], m[9], m[10]).length();
-        let scale = Vec3::new(sx, sy, sz);
-
-        // Extract rotation (remove scale)
-        let inv_sx = 1.0 / sx;
-        let inv_sy = 1.0 / sy;
-        let inv_sz = 1.0 / sz;
-
-        let rot_mat = Mat4 {
-            data: [
-                m[0] * inv_sx, m[1] * inv_sx, m[2] * inv_sx, 0.0,
-                m[4] * inv_sy, m[5] * inv_sy, m[6] * inv_sy, 0.0,
-                m[8] * inv_sz, m[9] * inv_sz, m[10] * inv_sz, 0.0,
-                0.0, 0.0, 0.0, 1.0,
-            ],
-        };
-
-        let rotation = Quat::from_mat4(&rot_mat);
-
-        (position, rotation, scale)
-    }
-
     // ==================== Projection Matrices ====================
 
     pub fn perspective(fov_y: f32, aspect: f32, near: f32, far: f32) -> Mat4 {
@@ -463,6 +431,41 @@ impl Mat4 {
             }
         }
         true
+    }
+}
+
+// Non-WASM methods (return types not compatible with wasm-bindgen)
+impl Mat4 {
+    /// Decompose matrix into TRS (position, rotation, scale)
+    pub fn decompose(&self) -> (Vec3, Quat, Vec3) {
+        let m = &self.data;
+
+        // Extract translation
+        let position = Vec3::new(m[12], m[13], m[14]);
+
+        // Extract scale
+        let sx = Vec3::new(m[0], m[1], m[2]).length();
+        let sy = Vec3::new(m[4], m[5], m[6]).length();
+        let sz = Vec3::new(m[8], m[9], m[10]).length();
+        let scale = Vec3::new(sx, sy, sz);
+
+        // Extract rotation (remove scale)
+        let inv_sx = 1.0 / sx;
+        let inv_sy = 1.0 / sy;
+        let inv_sz = 1.0 / sz;
+
+        let rot_mat = Mat4 {
+            data: [
+                m[0] * inv_sx, m[1] * inv_sx, m[2] * inv_sx, 0.0,
+                m[4] * inv_sy, m[5] * inv_sy, m[6] * inv_sy, 0.0,
+                m[8] * inv_sz, m[9] * inv_sz, m[10] * inv_sz, 0.0,
+                0.0, 0.0, 0.0, 1.0,
+            ],
+        };
+
+        let rotation = Quat::from_mat4(&rot_mat);
+
+        (position, rotation, scale)
     }
 }
 

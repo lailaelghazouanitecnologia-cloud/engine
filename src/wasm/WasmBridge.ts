@@ -127,13 +127,22 @@ export class WasmBridge {
         const bridge = this.instance;
 
         try {
-            // Try to load WASM module
-            const response = await fetch(wasmPath);
-            if (!response.ok) {
-                throw new Error(`Failed to fetch WASM: ${response.statusText}`);
-            }
+            let wasmBuffer: ArrayBuffer;
 
-            const wasmBuffer = await response.arrayBuffer();
+            // Support both Node.js and browser environments
+            if (typeof globalThis.fetch === 'function' && !wasmPath.startsWith('/home')) {
+                // Browser: use fetch
+                const response = await fetch(wasmPath);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch WASM: ${response.statusText}`);
+                }
+                wasmBuffer = await response.arrayBuffer();
+            } else {
+                // Node.js: use fs
+                const fs = await import('fs/promises');
+                const buffer = await fs.readFile(wasmPath);
+                wasmBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+            }
 
             // Import object for WASM module
             const importObject = {
