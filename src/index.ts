@@ -74,6 +74,7 @@ export type {
 } from './math/MathBackend';
 
 // ==================== WASM Bridge ====================
+import { WasmBridge as _WasmBridge, OperationPool as _OperationPool } from './wasm';
 export {
     WasmBridge,
     OperationPool,
@@ -81,6 +82,10 @@ export {
     WasmBatchProcessor,
     WasmOpCode,
 } from './wasm';
+
+// Internal references for use within Engine class
+const WasmBridge = _WasmBridge;
+const OperationPool = _OperationPool;
 
 export type {
     WasmModule,

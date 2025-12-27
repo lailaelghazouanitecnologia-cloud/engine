@@ -8,7 +8,7 @@
  * 4. Hash-based lookup: Fast O(1) duplicate detection
  */
 
-import { WasmBridge } from './WasmBridge';
+import { WasmBridge, WasmModule } from './WasmBridge';
 
 export enum OperationType {
     MATRIX_MULTIPLY,
@@ -59,7 +59,7 @@ function hashFloat32Fast(arr: Float32Array): number {
 }
 
 /** Full hash when exact matching is needed (slower but complete) */
-function hashFloat32Full(arr: Float32Array): number {
+function _hashFloat32Full(arr: Float32Array): number {
     let hash = arr.length;
     for (let i = 0; i < arr.length; i++) {
         _hashView.setFloat32(0, arr[i], true);
@@ -67,6 +67,8 @@ function hashFloat32Full(arr: Float32Array): number {
     }
     return hash;
 }
+// Export for potential future use
+export { _hashFloat32Full as hashFloat32Full };
 
 /** Combine two hashes */
 function combineHashes(a: number, b: number): number {
@@ -87,9 +89,10 @@ export class OperationPool {
     // Pre-allocated buffers for batching
     private _matrixBufferA: Float32Array;
     private _matrixBufferB: Float32Array;
-    private _quatBufferA: Float32Array;
-    private _quatBufferB: Float32Array;
-    private _resultBuffer: Float32Array;
+    // Reserved for future batch quaternion operations
+    private readonly _quatBufferA: Float32Array;
+    private readonly _quatBufferB: Float32Array;
+    private readonly _resultBuffer: Float32Array;
 
     // Pending operations (grouped by type)
     private _matrixMultiplies: Array<{
@@ -384,7 +387,7 @@ export class OperationPool {
     }
 
     /** TRUE BATCH matrix multiply - single WASM call for all matrices */
-    private _processMatrixMultipliesBatched(module: ReturnType<typeof WasmBridge.prototype.module>): void {
+    private _processMatrixMultipliesBatched(module: WasmModule): void {
         const count = this._matrixMultiplies.length;
         if (count === 0) return;
 
@@ -405,32 +408,22 @@ export class OperationPool {
             this._matrixBufferB.set(op.b, i * 16);
         }
 
-        // Execute batch multiply (if available)
-        if (module.math.batch_multiply_matrices) {
-            // Note: This would need a proper batch_multiply that takes two arrays
-            // For now, fall back to individual calls but with pre-packed data
-            for (let i = 0; i < count; i++) {
-                const op = this._matrixMultiplies[i];
-                const result = module.math.mat4_multiply(
-                    this._matrixBufferA.subarray(i * 16, (i + 1) * 16),
-                    this._matrixBufferB.subarray(i * 16, (i + 1) * 16)
-                );
-                this._cacheAndDeliver(op.hash, result, op.callbacks);
-                this._stats.operationsProcessed++;
-            }
-        } else {
-            // JavaScript fallback with optimized loop
-            for (let i = 0; i < count; i++) {
-                const op = this._matrixMultiplies[i];
-                const result = this._mat4MultiplyJS(op.a, op.b);
-                this._cacheAndDeliver(op.hash, result, op.callbacks);
-                this._stats.operationsProcessed++;
-            }
+        // Execute TRUE BATCH multiply - single WASM call for all matrices
+        const batchResultA = this._matrixBufferA.subarray(0, count * 16);
+        const batchResultB = this._matrixBufferB.subarray(0, count * 16);
+        const batchResults = module.math.batch_multiply_matrices(batchResultA, batchResultB);
+
+        // Distribute results to callbacks
+        for (let i = 0; i < count; i++) {
+            const op = this._matrixMultiplies[i];
+            const result = batchResults.subarray(i * 16, (i + 1) * 16);
+            this._cacheAndDeliver(op.hash, new Float32Array(result), op.callbacks);
+            this._stats.operationsProcessed++;
         }
     }
 
     /** TRUE BATCH quaternion SLERP */
-    private _processQuatSlerpsBatched(module: ReturnType<typeof WasmBridge.prototype.module>): void {
+    private _processQuatSlerpsBatched(module: WasmModule): void {
         if (this._quatSlerps.length === 0) return;
 
         // Group by t value for efficient batch processing
@@ -478,7 +471,7 @@ export class OperationPool {
         }
     }
 
-    private _processTransformPoints(module: ReturnType<typeof WasmBridge.prototype.module>): void {
+    private _processTransformPoints(module: WasmModule): void {
         for (const op of this._transformPoints) {
             const result = module.math.batch_transform_points(op.matrix, op.points);
             op.callback(result);
@@ -486,7 +479,7 @@ export class OperationPool {
         }
     }
 
-    private _processFrustumCulls(module: ReturnType<typeof WasmBridge.prototype.module>): void {
+    private _processFrustumCulls(module: WasmModule): void {
         for (const op of this._frustumCulls) {
             const result = module.culling.frustum_cull_aabbs(op.frustum, op.bounds);
             op.callback(result);
@@ -494,7 +487,7 @@ export class OperationPool {
         }
     }
 
-    private _processSkeletonInterpolations(module: ReturnType<typeof WasmBridge.prototype.module>): void {
+    private _processSkeletonInterpolations(module: WasmModule): void {
         for (const op of this._skeletonInterpolations) {
             const result = module.animation.skeleton_interpolate(op.bones_a, op.bones_b, op.t);
             op.callback(result);
