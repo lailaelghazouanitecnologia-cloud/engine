@@ -4,11 +4,45 @@
  * Automatically selects the best backend based on:
  * - Operation type
  * - Batch size
- * - Available backends (JS, WASM)
+ * - Available backends (JS, WASM, GPU)
  *
- * Based on benchmarks:
- * - JS is better for: single operations, small batches
- * - WASM batch is better for: 10+ similar operations, skinning, particles
+ * ==================== STRICT SELECTION RULES ====================
+ *
+ * Based on real benchmarks (see benchmarks/fair-comparison.ts):
+ *
+ * RULE 1: Single Operations (count = 1)
+ *   → ALWAYS use JavaScript
+ *   → TypeScript matches or beats Legacy performance
+ *   → No WASM/GPU overhead for single ops
+ *
+ * RULE 2: Small Batches (count 2-9)
+ *   → ALWAYS use JavaScript
+ *   → Loop overhead in JS < WASM call overhead
+ *
+ * RULE 3: Medium Batches (count 10-999)
+ *   → Use WASM if available
+ *   → WASM batch processing amortizes call overhead
+ *   → Benefits: Mat4 multiply chains, Quat SLERP arrays
+ *
+ * RULE 4: Large Batches (count 1000+)
+ *   → Use GPU Compute if available, else WASM, else JS
+ *   → GPU shines for: Skinning, Particles, Point clouds
+ *
+ * RULE 5: Operation-Specific Overrides
+ *   → Mat4.TRS: TypeScript is 2x faster than Legacy - prefer JS
+ *   → Quat.SLERP: TypeScript is 7x faster than Legacy - prefer JS
+ *   → Vec3 simple ops: Nearly identical - use JS for simplicity
+ *
+ * ====================  PERFORMANCE DATA  ====================
+ *
+ * Single operations (avg ns per op):
+ *   add2:       Legacy 1.89ns, TS ~6ns (acceptable for simplicity)
+ *   normalize:  EQUAL (Legacy 30.57ns, TS 29.70ns)
+ *   lerp:       EQUAL (Legacy 11.63ns, TS 12.06ns)
+ *   mulScalar:  TS WINS (Legacy 6.49ns, TS 6.01ns)
+ *   Mat4.TRS:   TS WINS 2x (Legacy 20.95ns, TS 10.56ns)
+ *   Quat.SLERP: TS WINS 7x (Legacy 75.16ns, TS 11.00ns)
+ *
  *
  * Architecture:
  * ┌─────────────────────────────────────────────────────────────────────┐
@@ -39,6 +73,19 @@
  */
 
 import { WasmBatchProcessor, WasmOpCode } from '../wasm/WasmBatchProcessor';
+
+// ==================== Backend Type ====================
+
+export enum BackendType {
+    /** JavaScript - best for single ops and small batches */
+    JavaScript = 'js',
+    /** WebAssembly - best for medium batches (10-999) */
+    WebAssembly = 'wasm',
+    /** GPU Compute - best for large batches (1000+) */
+    GPUCompute = 'gpu',
+    /** Auto-select based on operation and count */
+    Auto = 'auto',
+}
 
 // ==================== Configuration ====================
 
