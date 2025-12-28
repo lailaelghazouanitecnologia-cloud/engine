@@ -304,10 +304,13 @@ export class Quaternion {
     /** Rotate a vector by a quaternion */
     static rotateVector(rotation: Quaternion, point: Vector3): Vector3 {
         const qv = new Vector3(rotation.x, rotation.y, rotation.z);
-        const uv = Vector3.cross(qv, point);
-        const uuv = Vector3.cross(qv, uv);
+        const uv = Vector3.Cross(qv, point);
+        const uuv = Vector3.Cross(qv, uv);
 
-        return point.add(uv.multiply(2 * rotation.w)).add(uuv.multiply(2));
+        return Vector3.Add(
+            Vector3.Add(point, Vector3.MulScalar(uv, 2 * rotation.w)),
+            Vector3.MulScalar(uuv, 2)
+        );
     }
 
     /** Rotate towards a target rotation */

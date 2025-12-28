@@ -196,6 +196,11 @@ export class GameObject extends EngineObject {
         return result;
     }
 
+    /** Try to get a component of type T, returns null if not found */
+    tryGetComponent<T extends Component>(type: new () => T): T | null {
+        return this.getComponent(type);
+    }
+
     /** Get all components on this GameObject */
     getAllComponents(): Component[] {
         return [...this._components];

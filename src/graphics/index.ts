@@ -1,10 +1,11 @@
 /**
  * Graphics module exports
- * WebGL2 rendering abstraction
+ * Unified WebGL2/WebGPU rendering abstraction
  */
 
 // Constants and enums
 export {
+    DeviceType,
     PrimitiveType,
     BlendMode,
     BlendEquation,
@@ -23,6 +24,16 @@ export {
 } from './constants';
 
 export type { DeviceCapabilities } from './constants';
+
+// Device factory
+export {
+    createGraphicsDevice,
+    isWebGPUSupported,
+    isWebGL2Supported,
+    getBestDeviceType,
+    getSupportedDeviceTypes,
+} from './createDevice';
+export type { CreateDeviceOptions } from './createDevice';
 
 // Core classes
 export { GraphicsDevice, GraphicsDeviceOptions, BlendState, DepthState, StencilState } from './GraphicsDevice';

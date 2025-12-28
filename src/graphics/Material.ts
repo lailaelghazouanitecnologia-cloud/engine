@@ -274,6 +274,8 @@ export class StandardMaterial extends Material {
         this.setColor('_Color', Color.white);
         this.setFloat('_Metallic', 0);
         this.setFloat('_Smoothness', 0.5);
+        this.setFloat('_Opacity', 1);
+        this.setFloat('_NormalScale', 1);
         this.setFloat('_Emission', 0);
         this.setColor('_EmissionColor', Color.black);
     }
@@ -299,6 +301,20 @@ export class StandardMaterial extends Material {
     }
     set smoothness(value: number) {
         this.setFloat('_Smoothness', Math.max(0, Math.min(1, value)));
+    }
+
+    get opacity(): number {
+        return this.getFloat('_Opacity');
+    }
+    set opacity(value: number) {
+        this.setFloat('_Opacity', Math.max(0, Math.min(1, value)));
+    }
+
+    get normalScale(): number {
+        return this.getFloat('_NormalScale');
+    }
+    set normalScale(value: number) {
+        this.setFloat('_NormalScale', value);
     }
 
     get mainTexture(): Texture | null {
@@ -335,6 +351,7 @@ export class UnlitMaterial extends Material {
         super(device, shader);
 
         this.setColor('_Color', Color.white);
+        this.setFloat('_Opacity', 1);
     }
 
     get color(): Color {
@@ -342,6 +359,13 @@ export class UnlitMaterial extends Material {
     }
     set color(value: Color) {
         this.setColor('_Color', value);
+    }
+
+    get opacity(): number {
+        return this.getFloat('_Opacity');
+    }
+    set opacity(value: number) {
+        this.setFloat('_Opacity', Math.max(0, Math.min(1, value)));
     }
 
     get mainTexture(): Texture | null {

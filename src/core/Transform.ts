@@ -126,9 +126,9 @@ export class Transform extends Component {
 
     // ==================== Directions ====================
 
-    /** Forward direction in world space (negative Z) */
+    /** Forward direction in world space (positive Z) */
     get forward(): Vector3 {
-        return this.rotation.multiply(Vector3.forward);
+        return Quaternion.rotateVector(this.rotation, Vector3.forward);
     }
 
     set forward(value: Vector3) {
@@ -137,7 +137,7 @@ export class Transform extends Component {
 
     /** Right direction in world space */
     get right(): Vector3 {
-        return this.rotation.multiply(Vector3.right);
+        return Quaternion.rotateVector(this.rotation, Vector3.right);
     }
 
     set right(value: Vector3) {
@@ -146,7 +146,7 @@ export class Transform extends Component {
 
     /** Up direction in world space */
     get up(): Vector3 {
-        return this.rotation.multiply(Vector3.up);
+        return Quaternion.rotateVector(this.rotation, Vector3.up);
     }
 
     set up(value: Vector3) {
@@ -291,8 +291,8 @@ export class Transform extends Component {
     rotateAround(point: Vector3, axis: Vector3, angle: number): void {
         const q = Quaternion.angleAxis(angle, axis);
         const diff = this.position.subtract(point);
-        const rotatedDiff = q.multiply(diff);
-        this.position = point.add(rotatedDiff);
+        const rotatedDiff = Quaternion.rotateVector(q, diff);
+        this.position = point.plus(rotatedDiff);
         this.rotation = q.multiply(this.rotation);
     }
 
@@ -345,12 +345,12 @@ export class Transform extends Component {
 
     /** Transform direction from local to world space */
     transformDirection(direction: Vector3): Vector3 {
-        return this.rotation.multiply(direction);
+        return Quaternion.rotateVector(this.rotation, direction);
     }
 
     /** Transform direction from world to local space */
     inverseTransformDirection(direction: Vector3): Vector3 {
-        return this.rotation.inverse().multiply(direction);
+        return Quaternion.rotateVector(this.rotation.inverse(), direction);
     }
 
     /** Transform vector from local to world space (includes scale) */

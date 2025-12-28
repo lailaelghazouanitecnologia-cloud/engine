@@ -2,6 +2,14 @@
  * Graphics constants and enumerations.
  */
 
+// ==================== Device Types ====================
+
+export enum DeviceType {
+    WEBGL2 = 'webgl2',
+    WEBGPU = 'webgpu',
+    NULL = 'null'
+}
+
 // ==================== Primitive Types ====================
 
 export enum PrimitiveType {

@@ -141,6 +141,7 @@ export type {
 // ==================== Graphics ====================
 export {
     // Constants
+    DeviceType,
     PrimitiveType as GPUPrimitiveType,
     BlendMode,
     BlendEquation,
@@ -156,6 +157,12 @@ export {
     UniformType,
     ClearFlag,
     StencilOp,
+    // Device factory
+    createGraphicsDevice,
+    isWebGPUSupported,
+    isWebGL2Supported,
+    getBestDeviceType,
+    getSupportedDeviceTypes,
     // Core classes
     GraphicsDevice,
     VertexFormat,
@@ -173,6 +180,7 @@ export {
 export type {
     DeviceCapabilities,
     GraphicsDeviceOptions,
+    CreateDeviceOptions,
     BlendState,
     DepthState,
     StencilState,

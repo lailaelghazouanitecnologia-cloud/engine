@@ -99,6 +99,11 @@ export class Vector3 {
         return this;
     }
 
+    /** Add another vector (returns NEW vector) - convenience method */
+    plus(rhs: Vector3): Vector3 {
+        return new Vector3(this.x + rhs.x, this.y + rhs.y, this.z + rhs.z);
+    }
+
     /** Add two vectors and store in this (IN-PLACE) */
     add2(lhs: Vector3, rhs: Vector3): this {
         this.x = lhs.x + rhs.x;
@@ -129,6 +134,11 @@ export class Vector3 {
         this.y -= rhs.y;
         this.z -= rhs.z;
         return this;
+    }
+
+    /** Subtract another vector (returns NEW vector) - convenience method */
+    subtract(rhs: Vector3): Vector3 {
+        return new Vector3(this.x - rhs.x, this.y - rhs.y, this.z - rhs.z);
     }
 
     /** Subtract two vectors and store in this (IN-PLACE) */
@@ -169,6 +179,11 @@ export class Vector3 {
         this.y *= scalar;
         this.z *= scalar;
         return this;
+    }
+
+    /** Multiply by scalar (returns NEW vector) - convenience method */
+    multiply(scalar: number): Vector3 {
+        return new Vector3(this.x * scalar, this.y * scalar, this.z * scalar);
     }
 
     /** Divide by another vector component-wise (IN-PLACE) */
@@ -559,4 +574,27 @@ export class Vector3 {
         out.z = a.z + t * (b.z - a.z);
         return out;
     }
+
+    // ==================== Lowercase Aliases for compatibility ====================
+
+    /** Alias for Dot (lowercase) */
+    static dot = Vector3.Dot;
+
+    /** Alias for Cross (lowercase) */
+    static cross = Vector3.Cross;
+
+    /** Alias for Distance (lowercase) */
+    static distance = Vector3.Distance;
+
+    /** Alias for Lerp (lowercase) */
+    static lerp = Vector3.Lerp;
+
+    /** Alias for Project (lowercase) */
+    static project = Vector3.Project;
+
+    /** Alias for Reflect (lowercase) */
+    static reflect = Vector3.Reflect;
+
+    /** Alias for Angle (lowercase) */
+    static angle = Vector3.Angle;
 }
