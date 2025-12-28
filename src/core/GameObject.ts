@@ -196,6 +196,11 @@ export class GameObject extends EngineObject {
         return result;
     }
 
+    /** Get all components on this GameObject */
+    getAllComponents(): Component[] {
+        return [...this._components];
+    }
+
     /** Get a component of type T in children (depth-first) */
     getComponentInChildren<T extends Component>(type: new () => T, includeInactive: boolean = false): T | null {
         if (!includeInactive && !this.activeInHierarchy) return null;

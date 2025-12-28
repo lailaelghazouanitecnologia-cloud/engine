@@ -138,6 +138,90 @@ export type {
     QuadGeometryOptions,
 } from './geometry';
 
+// ==================== Graphics ====================
+export {
+    // Constants
+    PrimitiveType as GPUPrimitiveType,
+    BlendMode,
+    BlendEquation,
+    CompareFunc,
+    CullFace,
+    PixelFormat,
+    AddressMode,
+    FilterMode,
+    BufferUsage,
+    VertexElementType,
+    VertexSemantic,
+    ShaderType,
+    UniformType,
+    ClearFlag,
+    StencilOp,
+    // Core classes
+    GraphicsDevice,
+    VertexFormat,
+    VertexBuffer,
+    IndexBuffer,
+    Texture,
+    Shader,
+    RenderTarget,
+    Material,
+    StandardMaterial,
+    UnlitMaterial,
+    Mesh,
+} from './graphics';
+
+export type {
+    DeviceCapabilities,
+    GraphicsDeviceOptions,
+    BlendState,
+    DepthState,
+    StencilState,
+    VertexElement,
+    VertexBufferOptions,
+    IndexBufferOptions,
+    TextureOptions,
+    ShaderDefinition,
+    UniformInfo,
+    RenderTargetOptions,
+    MaterialPropertyValue,
+    BoundingBox,
+    BoundingSphere,
+} from './graphics';
+
+// ==================== Components ====================
+export {
+    Camera,
+    CameraProjection,
+    CameraClearFlags,
+    Light,
+    LightType,
+    LightShadows,
+    MeshRenderer,
+    ShadowCastingMode,
+} from './components';
+
+// ==================== Rendering ====================
+export {
+    ForwardRenderer,
+    RenderPipeline,
+} from './rendering';
+
+export type {
+    RenderSettings,
+    RenderStats,
+    RenderPipelineOptions,
+} from './rendering';
+
+// Internal imports for Engine class
+import { GraphicsDevice as _GraphicsDevice } from './graphics/GraphicsDevice';
+import { RenderPipeline as _RenderPipeline } from './rendering/RenderPipeline';
+import { Time as _Time } from './core/Time';
+import { SceneManager as _SceneManager } from './core/Scene';
+type GraphicsDeviceType = InstanceType<typeof _GraphicsDevice>;
+type RenderPipelineType = InstanceType<typeof _RenderPipeline>;
+const Time = _Time;
+const SceneManager = _SceneManager;
+
 // ==================== WASM Bridge ====================
 import { WasmBridge as _WasmBridge, OperationPool as _OperationPool } from './wasm';
 export {
@@ -223,6 +307,8 @@ export class Engine {
     private _isRunning: boolean = false;
     private _frameId: number = 0;
     private _config: Required<EngineConfig>;
+    private _graphicsDevice: GraphicsDeviceType | null = null;
+    private _renderPipeline: RenderPipelineType | null = null;
 
     private constructor(config: EngineConfig = {}) {
         this._config = {
@@ -246,6 +332,16 @@ export class Engine {
         return this._isRunning;
     }
 
+    /** Get the graphics device */
+    get graphicsDevice(): GraphicsDeviceType | null {
+        return this._graphicsDevice;
+    }
+
+    /** Get the render pipeline */
+    get renderPipeline(): RenderPipelineType | null {
+        return this._renderPipeline;
+    }
+
     /**
      * Initialize the engine
      * @param config Engine configuration
@@ -266,6 +362,26 @@ export class Engine {
 
         // Create default scene
         SceneManager.createScene('Main');
+
+        // Initialize graphics if canvas provided
+        if (this._instance._config.canvas) {
+            let canvas: HTMLCanvasElement;
+            if (typeof this._instance._config.canvas === 'string') {
+                const el = document.querySelector(this._instance._config.canvas);
+                if (el instanceof HTMLCanvasElement) {
+                    canvas = el;
+                } else {
+                    throw new Error(`Canvas element not found: ${this._instance._config.canvas}`);
+                }
+            } else {
+                canvas = this._instance._config.canvas;
+            }
+
+            this._instance._graphicsDevice = new _GraphicsDevice({ canvas });
+            this._instance._renderPipeline = new _RenderPipeline(this._instance._graphicsDevice);
+            this._instance._renderPipeline.initialize();
+            console.log('[Engine] Graphics initialized');
+        }
 
         console.log('[Engine] Initialized successfully');
         console.log(`[Engine] WASM: ${WasmBridge.instance.usingFallback ? 'Fallback' : 'Native'}`);
@@ -328,7 +444,16 @@ export class Engine {
         // Late update
         SceneManager._lateUpdate(Time.deltaTime);
 
-        // TODO: Render
+        // Render
+        if (this._renderPipeline) {
+            const scene = SceneManager.activeScene;
+            if (scene) {
+                const cameras = scene._getCameras();
+                const lights = scene._getLights();
+                const renderers = scene._getRenderers();
+                this._renderPipeline.render(cameras, lights, renderers);
+            }
+        }
 
         // Schedule next frame
         this._frameId = requestAnimationFrame(this._gameLoop);
@@ -339,6 +464,13 @@ export class Engine {
      */
     dispose(): void {
         this.stop();
+
+        // Clean up graphics resources
+        this._renderPipeline?.dispose();
+        this._graphicsDevice?.destroy();
+        this._renderPipeline = null;
+        this._graphicsDevice = null;
+
         Engine._instance = null;
         console.log('[Engine] Disposed');
     }

@@ -5,6 +5,9 @@
 
 import { GameObject } from './GameObject';
 import { EngineObject } from './Object';
+import type { Camera } from '../components/Camera';
+import type { Light } from '../components/Light';
+import type { MeshRenderer } from '../components/MeshRenderer';
 
 export class Scene {
     private _name: string;
@@ -114,6 +117,59 @@ export class Scene {
         }
         for (let i = 0; i < gameObject.transform.childCount; i++) {
             this._collectByTag(gameObject.transform.getChild(i).gameObject, tag, result);
+        }
+    }
+
+    // ==================== Rendering ====================
+
+    /**
+     * Get all active cameras in the scene.
+     * @internal
+     */
+    _getCameras(): Camera[] {
+        const cameras: Camera[] = [];
+        for (const root of this._rootGameObjects) {
+            this._collectComponents(root, 'Camera', cameras);
+        }
+        return cameras;
+    }
+
+    /**
+     * Get all active lights in the scene.
+     * @internal
+     */
+    _getLights(): Light[] {
+        const lights: Light[] = [];
+        for (const root of this._rootGameObjects) {
+            this._collectComponents(root, 'Light', lights);
+        }
+        return lights;
+    }
+
+    /**
+     * Get all active mesh renderers in the scene.
+     * @internal
+     */
+    _getRenderers(): MeshRenderer[] {
+        const renderers: MeshRenderer[] = [];
+        for (const root of this._rootGameObjects) {
+            this._collectComponents(root, 'MeshRenderer', renderers);
+        }
+        return renderers;
+    }
+
+    private _collectComponents<T>(gameObject: GameObject, typeName: string, result: T[]): void {
+        if (!gameObject.activeSelf) return;
+
+        const components = gameObject.getAllComponents();
+        for (const comp of components) {
+            if (comp.constructor.name === typeName && comp.enabled) {
+                result.push(comp as unknown as T);
+            }
+        }
+
+        for (let i = 0; i < gameObject.transform.childCount; i++) {
+            this._collectComponents(gameObject.transform.getChild(i).gameObject, typeName, result);
         }
     }
 
