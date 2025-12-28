@@ -121,8 +121,8 @@ export class Quaternion {
         );
     }
 
-    /** Get the inverse of this quaternion */
-    inverse(): Quaternion {
+    /** Returns the inverse of this quaternion */
+    get inverse(): Quaternion {
         const sqrMag = this.x * this.x + this.y * this.y + this.z * this.z + this.w * this.w;
         if (sqrMag < 0.00001) return Quaternion.identity;
         const inv = 1 / sqrMag;
@@ -220,7 +220,7 @@ export class Quaternion {
 
     /** Inverse of a quaternion */
     static inverse(rotation: Quaternion): Quaternion {
-        return rotation.inverse();
+        return rotation.inverse;
     }
 
     /** Linear interpolation */
@@ -368,6 +368,16 @@ export class Quaternion {
             a.y * ratioA + by * ratioB,
             a.z * ratioA + bz * ratioB,
             a.w * ratioA + bw * ratioB
+        );
+    }
+
+    /** Multiply two quaternions (static version) */
+    static multiply(a: Quaternion, b: Quaternion): Quaternion {
+        return new Quaternion(
+            a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+            a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+            a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
+            a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z
         );
     }
 }

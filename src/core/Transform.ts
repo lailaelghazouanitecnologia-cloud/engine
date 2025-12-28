@@ -73,7 +73,7 @@ export class Transform extends Component {
 
     set rotation(value: Quaternion) {
         if (this._parent) {
-            this._localRotation = this._parent.rotation.inverse().multiply(value);
+            this._localRotation = this._parent.rotation.inverse.multiply(value);
         } else {
             this._localRotation.copy(value);
         }
@@ -216,8 +216,20 @@ export class Transform extends Component {
         return this._children[index];
     }
 
-    /** Find child by name (not recursive) */
+    /** Find child by name or path (e.g., "Child/Grandchild") */
     find(name: string): Transform | null {
+        // Support path syntax like "Child/Grandchild"
+        if (name.includes('/')) {
+            const parts = name.split('/');
+            let current: Transform | null = this;
+            for (const part of parts) {
+                if (!current) return null;
+                current = current.find(part);
+            }
+            return current;
+        }
+
+        // Direct child search
         for (const child of this._children) {
             if (child.name === name) {
                 return child;
@@ -350,7 +362,7 @@ export class Transform extends Component {
 
     /** Transform direction from world to local space */
     inverseTransformDirection(direction: Vector3): Vector3 {
-        return Quaternion.rotateVector(this.rotation.inverse(), direction);
+        return Quaternion.rotateVector(this.rotation.inverse, direction);
     }
 
     /** Transform vector from local to world space (includes scale) */

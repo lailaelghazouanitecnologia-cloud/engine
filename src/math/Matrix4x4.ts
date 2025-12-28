@@ -85,6 +85,45 @@ export class Matrix4x4 {
         return Matrix4x4.transpose(this);
     }
 
+    // ==================== Element Accessors (row, column) ====================
+    // Column-major: data[col * 4 + row]
+
+    get m00(): number { return this.data[0]; }
+    set m00(v: number) { this.data[0] = v; }
+    get m10(): number { return this.data[1]; }
+    set m10(v: number) { this.data[1] = v; }
+    get m20(): number { return this.data[2]; }
+    set m20(v: number) { this.data[2] = v; }
+    get m30(): number { return this.data[3]; }
+    set m30(v: number) { this.data[3] = v; }
+
+    get m01(): number { return this.data[4]; }
+    set m01(v: number) { this.data[4] = v; }
+    get m11(): number { return this.data[5]; }
+    set m11(v: number) { this.data[5] = v; }
+    get m21(): number { return this.data[6]; }
+    set m21(v: number) { this.data[6] = v; }
+    get m31(): number { return this.data[7]; }
+    set m31(v: number) { this.data[7] = v; }
+
+    get m02(): number { return this.data[8]; }
+    set m02(v: number) { this.data[8] = v; }
+    get m12(): number { return this.data[9]; }
+    set m12(v: number) { this.data[9] = v; }
+    get m22(): number { return this.data[10]; }
+    set m22(v: number) { this.data[10] = v; }
+    get m32(): number { return this.data[11]; }
+    set m32(v: number) { this.data[11] = v; }
+
+    get m03(): number { return this.data[12]; }
+    set m03(v: number) { this.data[12] = v; }
+    get m13(): number { return this.data[13]; }
+    set m13(v: number) { this.data[13] = v; }
+    get m23(): number { return this.data[14]; }
+    set m23(v: number) { this.data[14] = v; }
+    get m33(): number { return this.data[15]; }
+    set m33(v: number) { this.data[15] = v; }
+
     // ==================== Instance Methods ====================
 
     setIdentity(): this {
@@ -479,5 +518,20 @@ export class Matrix4x4 {
         d[15] = 1;
 
         return m;
+    }
+
+    // ==================== Aliases for Unity compatibility ====================
+
+    /** Alias for trs (PascalCase) */
+    static TRS = Matrix4x4.trs;
+
+    /** Transform a point (applies translation) */
+    multiplyPoint(point: Vector3): Vector3 {
+        return this.transformPoint(point);
+    }
+
+    /** Transform a direction (ignores translation) */
+    multiplyVector(direction: Vector3): Vector3 {
+        return this.transformDirection(direction);
     }
 }
