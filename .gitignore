@@ -1,12 +1,14 @@
 # Dependencies
 node_modules/
 
-# Build outputs
-dist/
+# Build outputs (except wasm)
 build/
-*.wasm
 
-# Rust
+# Keep dist/wasm in repo
+dist/*
+!dist/wasm/
+
+# Rust build artifacts (not the output)
 rust-core/target/
 
 # IDE

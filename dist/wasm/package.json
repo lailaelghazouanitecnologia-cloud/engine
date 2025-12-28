@@ -1,0 +1,20 @@
+{
+  "name": "engine-core",
+  "type": "module",
+  "collaborators": [
+    "PlayCanvas Engine Team"
+  ],
+  "description": "High-performance core for PlayCanvas Engine with SIMD optimizations",
+  "version": "0.1.0",
+  "license": "MIT",
+  "files": [
+    "engine_core_bg.wasm",
+    "engine_core.js",
+    "engine_core.d.ts"
+  ],
+  "main": "engine_core.js",
+  "types": "engine_core.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
